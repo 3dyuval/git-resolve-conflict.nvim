@@ -29,8 +29,10 @@ end
 -- Check if file is in conflicted state
 local function is_conflicted(file)
   local file_dir = vim.fn.fnamemodify(file, ":h")
-  local git_root = vim.fn.system("cd " .. vim.fn.shellescape(file_dir) .. " && git rev-parse --show-toplevel"):gsub("\n", "")
-  
+  local git_root = vim.fn
+    .system("cd " .. vim.fn.shellescape(file_dir) .. " && git rev-parse --show-toplevel")
+    :gsub("\n", "")
+
   if vim.v.shell_error ~= 0 then
     return false, "Not in a git repository"
   end
@@ -41,7 +43,7 @@ local function is_conflicted(file)
     vim.fn.shellescape(git_root),
     vim.fn.shellescape(relative_file)
   )
-  
+
   vim.fn.system(cmd)
   return vim.v.shell_error == 0, relative_file, git_root
 end
@@ -64,18 +66,36 @@ function M.resolve_file(strategy)
   -- Create temporary files (same logic as original bash script)
   local temp_files = {
     common = os.tmpname(),
-    ours = os.tmpname(), 
-    theirs = os.tmpname()
+    ours = os.tmpname(),
+    theirs = os.tmpname(),
   }
 
   local success = false
   local conflicts_resolved = 0
 
+  local merge_strategy = "--" .. strategy
+  local output
+
   -- Execute git commands to extract conflict versions
   local commands = {
-    string.format("cd %s && git show :1:%s > %s", vim.fn.shellescape(git_root), vim.fn.shellescape(relative_file), temp_files.common),
-    string.format("cd %s && git show :2:%s > %s", vim.fn.shellescape(git_root), vim.fn.shellescape(relative_file), temp_files.ours),
-    string.format("cd %s && git show :3:%s > %s", vim.fn.shellescape(git_root), vim.fn.shellescape(relative_file), temp_files.theirs)
+    string.format(
+      "cd %s && git show :1:%s > %s",
+      vim.fn.shellescape(git_root),
+      vim.fn.shellescape(relative_file),
+      temp_files.common
+    ),
+    string.format(
+      "cd %s && git show :2:%s > %s",
+      vim.fn.shellescape(git_root),
+      vim.fn.shellescape(relative_file),
+      temp_files.ours
+    ),
+    string.format(
+      "cd %s && git show :3:%s > %s",
+      vim.fn.shellescape(git_root),
+      vim.fn.shellescape(relative_file),
+      temp_files.theirs
+    ),
   }
 
   -- Extract conflict versions
@@ -87,24 +107,27 @@ function M.resolve_file(strategy)
   end
 
   -- Run git merge-file with strategy
-  local merge_strategy = "--" .. strategy
   local merge_cmd = string.format(
     "git merge-file %s -p %s %s %s > %s",
     merge_strategy,
     vim.fn.shellescape(temp_files.ours),
-    vim.fn.shellescape(temp_files.common), 
+    vim.fn.shellescape(temp_files.common),
     vim.fn.shellescape(temp_files.theirs),
     vim.fn.shellescape(file)
   )
 
-  local output = vim.fn.system(merge_cmd)
+  output = vim.fn.system(merge_cmd)
   if vim.v.shell_error ~= 0 then
     vim.notify("git merge-file failed: " .. output, vim.log.levels.ERROR)
     goto cleanup
   end
 
   -- Stage the resolved file
-  local add_cmd = string.format("cd %s && git add %s", vim.fn.shellescape(git_root), vim.fn.shellescape(relative_file))
+  local add_cmd = string.format(
+    "cd %s && git add %s",
+    vim.fn.shellescape(git_root),
+    vim.fn.shellescape(relative_file)
+  )
   if vim.fn.system(add_cmd) ~= "" and vim.v.shell_error ~= 0 then
     vim.notify("Failed to stage resolved file", vim.log.levels.ERROR)
     goto cleanup
@@ -116,7 +139,10 @@ function M.resolve_file(strategy)
 
   success = true
   vim.cmd("checktime")
-  vim.notify(string.format("Resolved %d conflicts with '%s' strategy", conflicts_resolved, strategy), vim.log.levels.INFO)
+  vim.notify(
+    string.format("Resolved %d conflicts with '%s' strategy", conflicts_resolved, strategy),
+    vim.log.levels.INFO
+  )
 
   ::cleanup::
   -- Clean up temporary files
@@ -131,24 +157,32 @@ end
 function M.pick_and_resolve()
   local choices = {
     "Union (merge both changes)",
-    "Ours (keep our changes)", 
-    "Theirs (keep their changes)"
+    "Ours (keep our changes)",
+    "Theirs (keep their changes)",
   }
 
   vim.ui.select(choices, {
     prompt = "Resolve all conflicts in file:",
   }, function(choice, idx)
-    if not choice then return end
-    
+    if not choice then
+      return
+    end
+
     local strategies = { "union", "ours", "theirs" }
     M.resolve_file(strategies[idx])
   end)
 end
 
 -- Utility functions for diffview integration
-function M.resolve_ours() return M.resolve_file("ours") end
-function M.resolve_theirs() return M.resolve_file("theirs") end  
-function M.resolve_union() return M.resolve_file("union") end
+function M.resolve_ours()
+  return M.resolve_file("ours")
+end
+function M.resolve_theirs()
+  return M.resolve_file("theirs")
+end
+function M.resolve_union()
+  return M.resolve_file("union")
+end
 
 -- Show help/usage information
 function M.show_help()
@@ -173,7 +207,7 @@ Usage in diffview.lua:
   { "n", "<leader>gU", git_resolve.resolve_union, { desc = "Resolve file: union" } }
   { "n", "<leader>gr", git_resolve.pick_and_resolve, { desc = "Resolve file: pick" } }
 ]]
-  
+
   vim.notify(help_text, vim.log.levels.INFO)
 end
 
