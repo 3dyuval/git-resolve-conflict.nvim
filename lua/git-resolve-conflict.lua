@@ -187,6 +187,52 @@ function M.resolve_union()
   return M.resolve_file("union")
 end
 
+-- Restore file to conflicted state using git checkout --conflict=merge
+function M.restore_file_conflict()
+  local file, err = get_file_path()
+  if not file then
+    vim.notify(err or "Unable to get file path", vim.log.levels.WARN)
+    return false
+  end
+
+  -- Check if it's a valid file (not directory)
+  local stat = vim.loop.fs_stat(file)
+  if not stat or stat.type ~= "file" then
+    vim.notify("Not a valid file: " .. file, vim.log.levels.WARN)
+    return false
+  end
+
+  local file_dir = vim.fn.fnamemodify(file, ":h")
+  local git_root = vim.fn
+    .system("cd " .. vim.fn.shellescape(file_dir) .. " && git rev-parse --show-toplevel")
+    :gsub("\n", "")
+
+  if vim.v.shell_error ~= 0 then
+    vim.notify("Not in a git repository", vim.log.levels.WARN)
+    return false
+  end
+
+  local relative_file = file:gsub("^" .. vim.pesc(git_root) .. "/", "")
+
+  -- Execute git checkout --conflict=merge filename
+  local cmd = string.format(
+    "cd %s && git checkout --conflict=merge %s",
+    vim.fn.shellescape(git_root),
+    vim.fn.shellescape(relative_file)
+  )
+
+  local output = vim.fn.system(cmd)
+  if vim.v.shell_error ~= 0 then
+    vim.notify("Failed to restore conflict markers: " .. output, vim.log.levels.ERROR)
+    return false
+  end
+
+  -- Reload the buffer to show the restored conflict markers
+  vim.cmd("checktime")
+  vim.notify("Restored conflict markers for: " .. relative_file, vim.log.levels.INFO)
+  return true
+end
+
 -- Show help/usage information
 function M.show_help()
   local help_text = [[
@@ -198,6 +244,7 @@ Available functions:
   - resolve_ours(): Quick resolve with ours strategy
   - resolve_theirs(): Quick resolve with theirs strategy  
   - resolve_union(): Quick resolve with union strategy
+  - restore_file_conflict(): Restore conflict markers using git checkout --conflict=merge
 
 No external dependencies required!
 Uses native git commands: git show, git merge-file, git add
