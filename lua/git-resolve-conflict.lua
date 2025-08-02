@@ -74,6 +74,9 @@ function M.resolve_file(strategy)
   local conflicts_resolved = 0
 
   local merge_strategy = "--" .. strategy
+  local merge_cmd
+  local add_cmd
+  local conflict_count
   local output
 
   -- Execute git commands to extract conflict versions
@@ -107,7 +110,7 @@ function M.resolve_file(strategy)
   end
 
   -- Run git merge-file with strategy
-  local merge_cmd = string.format(
+  merge_cmd = string.format(
     "git merge-file %s -p %s %s %s > %s",
     merge_strategy,
     vim.fn.shellescape(temp_files.ours),
@@ -123,7 +126,7 @@ function M.resolve_file(strategy)
   end
 
   -- Stage the resolved file
-  local add_cmd = string.format(
+  add_cmd = string.format(
     "cd %s && git add %s",
     vim.fn.shellescape(git_root),
     vim.fn.shellescape(relative_file)
@@ -134,7 +137,7 @@ function M.resolve_file(strategy)
   end
 
   -- Count resolved conflicts (approximate)
-  local conflict_count = output and tostring(output):gsub("[^\n]", ""):len() or 0
+  conflict_count = output and tostring(output):gsub("[^\n]", ""):len() or 0
   conflicts_resolved = math.max(1, math.floor(conflict_count / 3)) -- Rough estimate
 
   success = true
