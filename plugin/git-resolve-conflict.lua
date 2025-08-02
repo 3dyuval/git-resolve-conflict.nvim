@@ -22,7 +22,3 @@ end, {
 vim.api.nvim_create_user_command("GitResolveHelp", git_resolve.show_help, {
 	desc = "Show git-resolve-conflict help",
 })
-
--- Expose module globally for diffview integration
-_G.GitResolveConflict = git_resolve
-
